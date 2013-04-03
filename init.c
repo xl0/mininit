@@ -168,6 +168,7 @@ int main(int argc, char **argv)
 	};
 
 	int fd, boot = 0;
+	int rootfs_updated = 0;
 
 	char sbuf [256];
 	char cbuf[4096];
@@ -222,11 +223,12 @@ int main(int argc, char **argv)
 		/* Check for a rootfs update */
 		if (boot && !access("/boot/update_r.bin", R_OK | W_OK)) {
 			char old[128];
-			DEBUG("RootFS update found!\n");
+			INFO("RootFS update found!\n");
 
 			sprintf(old, "%s.old", paramv[i] + 6);
 			rename(paramv[i] + 6, old);
 			rename("/boot/update_r.bin", paramv[i] + 6);
+			rootfs_updated = 1;
 
 			sync();
 		}
@@ -308,6 +310,17 @@ int main(int argc, char **argv)
 
 	/* Release the old root */
 	close(fd);
+
+	/*
+	 * If the rootfs was updated, link /usr/bin/rootfs_updated.sh to
+	 * /etc/local/init.d/S03rootfs_updates.sh
+	 */
+	if (rootfs_updated) {
+		if (symlink("/usr/bin/rootfs_updated.sh",
+			"/etc/local/init.d/S03rootfs_updated.sh")) {
+			WARNING("Can't link /etc/local/init.d/S03rootfs_updated.sh\n");
+		}
+	}
 
 	/* Prepare paramv[0] which is the init program itself */
 	for (i=1; i<paramc; i++) {
